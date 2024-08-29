@@ -1,7 +1,8 @@
 from flask import Flask, jsonify, request
-from flask_cors import CORS 
-import os,psycopg2 
-import psycopg2.extras 
+from flask_cors import CORS
+import os
+import psycopg2
+import psycopg2.extras
 
 app = Flask(__name__)
 CORS(app)
@@ -16,14 +17,16 @@ def get_db_connection():
     )
     return conn
 
+
 @app.route("/")
 def index():
     return jsonify({
-        "status":{
+        "status": {
             "code": 200,
             "message": "Success fetching the API"
         },
     }), 200
+
 
 @app.route('/data', methods=['GET'])
 def get_data():
@@ -34,7 +37,7 @@ def get_data():
     offset = int(request.args.get('offset', 0))
     order_by = request.args.get('order_by', '')
     join_clause = request.args.get('join', '')
-    
+
     if not table:
         return jsonify({
             'status': 'error',
@@ -48,25 +51,33 @@ def get_data():
         # Inisialisasi query
         query = f'SELECT {columns} FROM {table}'
 
-         # Handle JOIN clause
+        # Handle JOIN clause
         if join_clause:
             query += ' ' + join_clause
 
         # Handle WHERE clause
         if where_clause:
-            query += ' WHERE ' + where_clause
+            where_clause = where_clause.replace('"', "'")  # Replace double quotes with single quotes
+            query += f" WHERE {where_clause}"
 
         # Handle ORDER BY
         if order_by:
             query += ' ORDER BY ' + order_by
 
         # Handle LIMIT and OFFSET
-        if limit:
+        if limit and limit.isdigit():
             query += ' LIMIT %s OFFSET %s'
+            cursor.execute(query, (limit, offset))
+        elif limit:
+            query += ' LIMIT %s'
+            cursor.execute(query, (limit,))
+        else:
+            cursor.execute(query)
 
+        # Debug: Print final query
+        print(f"Final Query: {cursor.query.decode()}")
 
         # Execute query
-        cursor.execute(query, [limit, offset] if limit else [])
         rows = cursor.fetchall()
         result = [dict(row) for row in rows]
 
@@ -74,15 +85,16 @@ def get_data():
         conn.close()
 
         return jsonify({
-            'data' : result,
-            'status' : 'success',
-            'message' : 'Data Berhasil Ditampilkan',
+            'data': result,
+            'status': 'success',
+            'message': 'Data Berhasil Ditampilkan',
         }), 200
 
     except Exception as e:
         if conn:
             conn.close()
         return jsonify({'error': str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True)
