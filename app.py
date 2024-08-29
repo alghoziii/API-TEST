@@ -57,7 +57,7 @@ def get_data():
 
         # Handle WHERE clause
         if where_clause:
-            where_clause = where_clause.replace('"', "'")  # Replace double quotes with single quotes
+            where_clause = where_clause.replace('"', "'")  
             query += f" WHERE {where_clause}"
 
         # Handle ORDER BY
