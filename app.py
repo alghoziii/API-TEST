@@ -8,7 +8,7 @@ app = Flask(__name__)
 CORS(app)
 
 def get_db_connection():
-    conn = psycopg2.connect(
+    conn = psycopg2.connect(    
         host=os.getenv("DB_HOST", "localhost"),
         database=os.getenv("DB_NAME", "testbudimas"),
         user=os.getenv("DB_USER", "postgres"),
@@ -33,7 +33,8 @@ def get_data():
     limit = request.args.get('limit', type=int)
     offset = request.args.get('offset', type=int)
     order_by = request.args.get('order_by', '')
-    join_clause = request.args.get('join', '')
+    join_tables = request.args.getlist('join')
+    join_conditions = request.args.getlist('on')
 
     if not table:
         return jsonify({
@@ -47,8 +48,19 @@ def get_data():
 
         query = f'SELECT {columns} FROM {table}'
 
-        if join_clause:
-            query += ' ' + join_clause
+        #handle Join and ON
+        if join_tables and join_conditions:
+            if len(join_tables) != len(join_conditions):
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Number of join tables and on conditions must match'
+                }), 400
+            
+        join_statements = []
+        for join_table, join_condition in zip(join_tables, join_conditions):
+                join_condition = join_condition.replace('"', "'")
+                join_statements.append(f'JOIN {join_table} ON {join_condition}')
+        query += ' ' + ' '.join(join_statements)
 
         if where_clause:
             where_clause = where_clause.replace('"', "'")
@@ -57,7 +69,7 @@ def get_data():
         if order_by:
             query += ' ORDER BY ' + order_by
 
-        # Handle LIMIT and OFFSET directly in the query string
+        # Handle LIMIT and OFFSET 
         if limit is not None:
             query += f' LIMIT {limit}'
         if offset is not None:
